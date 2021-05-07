@@ -1,0 +1,1422 @@
+# This program was created and optimized in Jupyter Notebook. If possible, it is recommended to open the program and run it in Jupyter.
+
+# Load Pandas
+import pandas as pd
+
+################################################################################################################################
+
+# New as of 3/14/2021
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+
+# For interactive charts:
+from plotly import __version__
+
+import cufflinks as cf
+
+from plotly.offline import download_plotlyjs,init_notebook_mode,plot,iplot
+
+init_notebook_mode(connected=True)
+
+cf.go_offline()
+
+
+################################################################################################################################
+
+# Welcome Header
+
+print(" ")
+print(" ")
+print(" ")
+print("*****************************           WELCOME TO CAM'S STOCK ANALYSIS PROGRAM!           *****************************")
+
+print(" ")      
+print(" ")
+print(" ")
+print("         This program is meant to find the fair value of a company based on a Discounted Free Cash Flow Valuation.")
+print(" ")      
+print(" ")
+print(" ")
+print("         As such, it is most accurate when used to analyze companies that are considered 'value' investments.")
+print(" ")      
+print(" ")
+print(" ")
+print("         I plan to add functionality for OTC, Growth, Commodities and ETF securities in the near future.")
+print(" ")      
+print(" ")
+print(" ")
+print("         Before you begin, please 'Restart and Clear Output' of the 'Kernel', or incorrect data may be provided.")   
+print(" ")
+print(" ")
+print(" ")
+################################################################################################################################
+
+
+# Find the Ticker Symbol
+
+    # Save the ticker symbol with user input, then webscrape the company name from fidelity.com
+    
+correct_ticker = False
+
+while correct_ticker == False:
+    
+    try:
+
+        ticker = input("What is the Ticker Symbol of the Company?:").upper()
+
+        ticker_url = "https://quotes.fidelity.com/webxpress/get_quote?QUOTE_TYPE=&SID_VALUE_ID={x}".format(x=ticker)
+
+        ticker_df = pd.read_html(ticker_url)
+
+        full_company_name = ticker_df[6][0][0][:-6].lower()
+
+        correct_ticker = True
+        
+        print(" ")
+
+    except:
+        print(" ")
+        print("Ticker not found!")
+        print(" ")
+        
+################################################################################################################################
+
+# The following section formats a company's full name so that it can be added to a predetermined URL.
+
+# Find and calculate the appropriate syntax for each of the company's unique URL links.
+
+    
+    # We need to take 'company_name' and remove word articles, and specific words like "corp", then join 
+    # remaining words with hyphens to replicate the html5 code found at the end of each macrotrends URL.
+    
+try:
+
+    query = full_company_name
+    querywords = query.split()
+    stopwords = ['corp', 'corporation', 'ltd', 'inc', 'co', 'walt','p','pl','plc','systems','company','c','companies',
+                'i','in','inc','incorporated','lt','l','ltd']
+
+    resultwords  = [word for word in querywords if word not in stopwords]
+    new_company_name = ' '.join(resultwords)
+
+    # query to remove '&' symbol for company name with hyphens
+
+    new_query = new_company_name
+    new_querywords = new_query.split()
+    new_stopwords = ['&']
+
+    new_resultwords  = [word for word in new_querywords if word not in new_stopwords]
+    company_name_without_ampersand = ' '.join(new_resultwords)
+
+    company_name_with_hyphens = company_name_without_ampersand.replace(' ','-')
+
+except:
+    print("Error:            Unable to create company name with hyphens. Company url creations will not execute.")
+
+################################################################################################################################
+
+
+# Values that represent each of the company's Macrotrends Website Links
+
+
+try:
+    pe_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/pe-ratio".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Price/Earnings URL")
+    
+try:
+    roi_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/roi".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Return on Investment URL")
+    
+try:
+    revenue_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/revenue".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Revenue URL")
+    
+try:
+    eps_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/eps-earnings-per-share-diluted".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Earnings per Share URL")
+    
+try:
+    equity_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/total-share-holder-equity".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Equity URL")
+    
+try:
+    fcf_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/free-cash-flow".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Free Cash Flow URL")
+    
+try:
+    balance_sheet_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/balance-sheet?freq=Q".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Balance Sheet URL")
+    
+
+# Newer Links I'm workshopping as of March, 2021:
+
+
+try:
+    price_history_url = "https://finance.yahoo.com/quote/{x}/history?p={x}".format(x=ticker)
+except:
+    print("Error:                  Unable to find Price History URL")
+    
+try:
+    dividend_history_url = "https://www.macrotrends.net/stocks/charts/{t}/{c}/dividend-yield-history".format(t=ticker,c=company_name_with_hyphens)
+except:
+    print("Error:                  Unable to find Dividend History URL")
+    
+################################################################################################################################
+
+# Create Balance Sheet DataFrames:
+
+try:
+    total_current_assets_df = pd.read_html('https://www.macrotrends.net/stocks/charts/{x}/{y}/total-current-assets'.format(x=ticker,y=company_name_with_hyphens))
+except:
+    print("Error:                  Unable to create total current assets dataframe")
+    
+try:
+    total_current_liabilities_df = pd.read_html('https://www.macrotrends.net/stocks/charts/{x}/{y}/total-current-liabilities'.format(x=ticker,y=company_name_with_hyphens))
+except:
+    print("Error:                  Unable to create total current liabilities dataframe")
+    
+try:
+    total_liabilities_df = pd.read_html('https://www.macrotrends.net/stocks/charts/{x}/{y}/total-liabilities'.format(x=ticker,y=company_name_with_hyphens))
+except:
+    print("Error:                  Unable to create total liabilities dataframe")
+    
+try:
+    total_assets_df = pd.read_html('https://www.macrotrends.net/stocks/charts/{x}/{y}/total-assets'.format(x=ticker,y=company_name_with_hyphens))
+except:
+    print("Error:                  Unable to create total assets dataframe")
+    
+    
+################################################################################################################################
+
+# New 4/6/2021
+# Webscrape Company Summary and print it Underneath "Spreadsheet Links "section of output:
+
+try:
+    summary_page_url = 'https://www.macrotrends.net/stocks/charts/{x}/{y}/dividend-yield-history'.format(x=ticker,y=company_name_with_hyphens)
+
+    summary_page_df = pd.read_html(summary_page_url)
+
+    company_summary = summary_page_df[0].iloc[1][0]
+except:
+    print("Error:                  Unable to create summary page dataframe")
+
+################################################################################################################################
+
+# Web scraping Price to Earnings (PE) values from the defined PE URL above, and calculating averages.
+
+
+    # Sometimes the web-scraped company name from fidelity.com will not match the dataframe column's company name
+    # found on Macrotrends.com.... In that case, to avoid an error with further program execution,
+    # we need a manual override to reset the "company_title" variable. 
+    
+    # The correct company title can be found by running PE_dF and examining the column names.
+    # Specifically, it is found here: PE_df.columns[0].split("PE")[0][:-1]
+    
+    
+#                                                       * * *   
+
+#                             From this point on, all calculations will be nested in a try/except to                      
+#                         allow errors and exception handling to determine if the program is executable.        
+#                                     If it is not, the program will self-terminate.                            
+
+#                                                       * * *    
+    
+try:
+    
+        
+    
+       
+################################################################################################################################
+    
+    # Create Price/Earnings DataFrame
+    
+    try:
+        
+        pe_df = pd.read_html(pe_url)
+
+        pe_df[0].to_csv('{x}_5_Year_Avg_PE'.format(x=ticker),index=False)
+
+        PE_df = pd.read_csv('{x}_5_Year_Avg_PE'.format(x=ticker))
+
+        # As of 2/11/21: New Method to select appropriate company name from dataframe! This should take the step of 
+        # Double checking the data frame manually to determine the correct company name!
+
+        company_title = PE_df.columns[0].split("PE")[0][:-1]
+    except:
+        print("Error:                  Unable to determine company title from Yahoo Finance Price/Earnings URL")
+
+
+
+    # Check to see if the name of the company is correct:
+
+
+    try:
+        FiveYearPEs = PE_df['{ct} PE Ratio Historical Data.3'.format(ct=company_title)][1:21]
+
+    except:
+        # If Error occurs (where scraped company name does not match the one in PE_df: 
+        # Manual entry for company name:
+
+        correct_name = False
+
+        while correct_name == False:
+            name_check = input("An Error occured. Is this the company name?: '{x}' Please type 'Y' or 'N'.".format(x=company_title)).upper()
+            if name_check == 'Y':
+                answer = input("Are you sure? Are spelling and capitalization correct?: 'Y' or 'N'.")
+                if answer == 'Y':
+                    correct_name = True
+                    pass
+
+                elif answer == 'N':
+                    name_check == 'N'
+                    continue
+
+            elif name_check == "N":
+                new_company_title = input("What name should be used for the company? Please double check spellings and capitalization.: ")
+                double_check = input("Is this the correct spelling?: '{x}' | Type 'Y' or 'N'".format(x=new_company_title)).upper()
+                if double_check == 'Y':
+                    company_title = new_company_title
+                    correct_name == True
+                    try:
+                        FiveYearPEs = PE_df['{ct} PE Ratio Historical Data.3'.format(ct=company_title)][1:21]
+                        print("Company name found.")
+                    except:
+                        print(" ")
+                        print("Macrotrends Data is not available for this Company!")
+                        break
+                else:
+                    continue
+
+    finally:
+        pass
+
+    try:
+        
+        PE_list = []
+        for item in FiveYearPEs:
+            PE_list.append(item)
+    except:
+        print("Error:                  Unable to Create Price/Earnings list")
+
+
+    try:    
+
+        float_list_sum_pe = sum(map(float,PE_list))
+
+        Avg_5yr_PE = (float_list_sum_pe)/len(PE_list)
+
+        Rounded_Avg_5yr_PE = round(Avg_5yr_PE,2)
+
+        Five_Yr_Max = max(map(float,PE_list))
+
+        Five_Yr_Min = min(map(float,PE_list))
+
+    except:
+        print(" ")
+        print("There was an error calculating five year PE values. One or more items may not be of numerical value.")
+        pass
+
+    # Current PE Ratio for PEG Calculation
+    
+    try:
+        Current_PE = float(PE_df['{ct} PE Ratio Historical Data.3'.format(ct=company_title)][1])
+    except:
+        print("Error:                  Unable to Calculate Current PE Ratio")
+        pass
+
+
+
+################################################################################################################################
+    # Extracting Balance Sheet values from recently created and corresponding data frames, courtesy of Macrotrends.com:
+    print(" ")
+    
+    # TOTAL CURRENT ASSETS
+    
+    try:
+        # 04/15/2021.... this wasn't working due to NaN values. Added ".dropna()" at end, then needed to use ".iloc" to 
+        # select the first item in the pandas series. Adjusting the following balance sheet related calculations to match.
+        total_current_assets = total_current_assets_df[1]['{x} Quarterly Total Current Assets(Millions of US $).1'.format(x=company_title)].dropna()[total_current_assets_df[1]['{x} Quarterly Total Current Assets(Millions of US $).1'.format(x=company_title)].dropna()!='$0'].iloc[0]
+    except:
+        print("Error:                  Unable to define total current assets")
+        
+        
+    # TOTAL CURRENT LIABILITIES       
+
+    try:
+        total_current_liabilities = total_current_liabilities_df[1]['{x} Quarterly Total Current Liabilities(Millions of US $).1'.format(x=company_title)].dropna()[total_current_liabilities_df[1]['{x} Quarterly Total Current Liabilities(Millions of US $).1'.format(x=company_title)].dropna()!='$0'].iloc[0]
+    except:
+        print("Error:                  Unable to define total current lilabilities")
+        
+        
+    # TOTAL LIABILITIES
+    
+    try:
+        total_liabilities = total_liabilities_df[1]['{x} Quarterly Total Liabilities(Millions of US $).1'.format(x=company_title)].dropna()[total_liabilities_df[1]['{x} Quarterly Total Liabilities(Millions of US $).1'.format(x=company_title)].dropna()!='$0'].iloc[0]
+    except:
+        print("Error:                  Unable to define total liabilities")
+        
+        
+    # TOTAL ASSETS        
+
+    try:
+        # 04/15/2021...Had to go a little bit further on this one. While viewing the total assets dataframe for 
+        # ticker symbol, "BUD" I noticed that, for some reason, every other row of the pandas series was showing 
+        # up with a $0 value. So I had to filter out all values that matched '$0'. Here's how I did that:
+        # Going to modify the other above calculations for balance sheet values to match this superior one!
+        total_assets = total_assets_df[1]['{x} Quarterly Total Assets(Millions of US $).1'.format(x=company_title)].dropna()[total_assets_df[1]['{x} Quarterly Total Assets(Millions of US $).1'.format(x=company_title)].dropna()!='$0'].iloc[0]
+    except:
+        print("Error:                  Unable to define total assets")
+        
+        
+    # CURRENT RATIO (Assets/Liabilities)
+    
+    try:        
+        current_ratio = round(float(total_current_assets[1:].replace(',' ,''))/float(total_current_liabilities[1:].replace(',' ,'')),2)
+    except:
+        print("Error:                  Unable to determine current ratio")
+        
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
+
+
+# Web scraping 3-5 Year Growth Estimates from Yahoo Finance
+
+
+    # Yahoo Finance Growth Estimate
+
+    try:
+        growth_df = pd.read_html('https://finance.yahoo.com/quote/{x}/analysis?p={y}'.format(x=ticker,y=ticker))
+
+        growth_df[5].to_csv('{x}_Yahoo_Finance_Growth_Estimate'.format(x=ticker),index=False)
+
+        Yahoo_df = pd.read_csv('{x}_Yahoo_Finance_Growth_Estimate'.format(x=ticker))
+
+        YF_5_Yr_Growth_Estimate = float(Yahoo_df['{x}'.format(x=ticker)][4][:-1])
+
+        PEG = Current_PE/YF_5_Yr_Growth_Estimate
+
+        Rounded_PEG = round(PEG,2)
+
+    except:
+        print(" ")
+        print("Error:                  Analysts' data is not available. No 3-5 year Growth estimate found.")
+        pass
+
+    # Yahoo Finance: Market Cap, Stock Price, Dividend Yield (& Calculated Rate of Return)
+
+    try:
+        yahoo_homepage_df = pd.read_html('https://finance.yahoo.com/quote/{x}/'.format(x=ticker))
+        
+    except:
+        print("Yahoo home page for {x} not found.".format(x=ticker))
+        
+    try:
+        market_cap = float(yahoo_homepage_df[1][1][0][:-1])
+
+        # Millions, Billions or Trillions? Determines whether to put 'M', 'B' or 'T' after the floated market cap number.
+        
+        m_b_or_t = yahoo_homepage_df[1][1][0][-1]
+        
+    except:
+        print("No Market Cap information found for {x}.".format(x=ticker))
+        
+    try:
+        current_dividend_amount = float(yahoo_homepage_df[1][1][5][:-8])
+    except:
+        pass
+    
+    # Dividend % webscrape FIXED 3/15/21.... now works for companies that have 4-digit dividend values i.e. $10.50
+    
+    try:
+        dividend_value_list = yahoo_homepage_df[1][1][5].split('(')
+
+        current_dividend_percentage = float(dividend_value_list[1][:-2])
+    except:
+        print("Error:                  Current Div % Not Available")
+        pass
+    
+    # This isn't working for companies that don't pay a dividend, but it is more accurate than webscraping...
+    # so let's get complicated...
+    
+    try:
+        if yahoo_homepage_df[1][1][5] != 'N/A (N/A)':
+            
+            current_price = round(((current_dividend_amount/current_dividend_percentage) * 100),2)
+            
+            
+        elif yahoo_homepage_df[1][1][5] == 'N/A (N/A)':
+            
+            current_price_df = pd.read_html(price_history_url)
+            current_price = float(current_price_df[0]['Adj Close**'][1]) 
+            
+    except:
+        print("Current Price:          Not Available")
+        pass
+    
+    try:
+        if yahoo_homepage_df[1][1][5] == 'N/A (N/A)':
+            req_rate = 15
+        else:
+            req_rate = round((15 - current_dividend_percentage),2)
+    except:
+        print("Req Rate of Return:     Uncalculable")
+        pass
+        
+
+################################################################################################################################
+
+
+# Web scraping Return on Investment (ROI) values from the defined ROI URL above, and calculating averages.
+
+    try:
+
+        roi_df = pd.read_html(roi_url)
+
+        roi_df[0].to_csv('{x}_5_Year_Avg_ROI'.format(x=ticker),index=False)
+
+        ROI_df = pd.read_csv('{x}_5_Year_Avg_ROI'.format(x=ticker))
+
+        FiveYearROIs = ROI_df['{ct} ROI - Return on Investment Historical Data.3'.format(ct=company_title)][1:21]
+
+        Five_Yr_ROI_list = []
+        for item in FiveYearROIs:
+            Five_Yr_ROI_list.append(item)
+
+        ROI_No_Percent_Sign_5_List = [x[:-1] for x in Five_Yr_ROI_list]
+        
+    except:
+        print("Error:            Unable to Web Scrape ROI from Yahoo Finance")
+        pass
+
+    try:
+
+        float_list_sum_5 = sum(map(float,ROI_No_Percent_Sign_5_List))
+
+        Avg_5yr_ROI = (float_list_sum_5)/len(ROI_No_Percent_Sign_5_List)
+
+        Rounded_Avg_5yr_ROI = round(Avg_5yr_ROI,2)
+
+    except:
+        print(" ")
+        print("There was an error calculating five year ROI values. One or more items may not be of numerical value.")
+        pass
+
+
+
+    try:
+        OneYearROIs = ROI_df['{ct} ROI - Return on Investment Historical Data.3'.format(ct=company_title)][1:5]
+
+        One_Yr_ROI_list = []
+        for item in OneYearROIs:
+            One_Yr_ROI_list.append(item)
+
+        ROI_No_Percent_Sign_1_List = [x[:-1] for x in One_Yr_ROI_list]
+
+        float_list_sum_1 = sum(map(float,ROI_No_Percent_Sign_1_List))
+
+        Avg_1yr_ROI = (float_list_sum_1)/len(ROI_No_Percent_Sign_1_List)
+
+        Rounded_Avg_1yr_ROI = round(Avg_1yr_ROI,2)
+
+    except:
+        print(" ")
+        print("There was an error calculating one year ROI values. One or more items may not be of numerical value.")
+        pass
+
+
+
+
+################################################################################################################################
+
+    
+    
+    
+# Calculating the Payback time: Market Cap/Levered Free Cash Flow:
+
+
+    # Webscrape 'Market Cap' from Yahoo Finance
+    
+    try:
+        
+        market_cap_df = pd.read_html('https://finance.yahoo.com/quote/{x}?p={y}&.tsrc=fin-srch'.format(x=ticker,y=ticker))
+
+        market_cap_df[1].to_csv('{x}_Market_Cap'.format(x=ticker),index=False)
+
+        mcap_df = pd.read_csv('{x}_Market_Cap'.format(x=ticker))
+
+        Market_Cap = mcap_df['1'][0]
+        
+    except:
+        print("Error:            Unable to Web Scrape Market Cap from Yahoo Finance")
+        pass
+
+    try:
+
+
+        if Market_Cap[-1] == 'T':
+            market_str = Market_Cap[:-1]
+
+            market_float = float(market_str)
+
+            multiplied_market_num = market_float * 1000000
+
+        elif Market_Cap[-1] == 'B':
+            market_str = Market_Cap[:-1]
+
+            market_float = float(market_str)
+
+            multiplied_market_num = market_float * 1000
+
+        elif Market_Cap[-1] == 'M':
+            market_str = Market_Cap[:-1]
+
+            market_float = float(market_str)
+
+            multiplied_market_num = market_float/1
+
+        else:
+            print(" ")
+            print("Market Cap Is not in the Millions or the Billions.")
+
+    except:
+        print("Error:            Unable to Calculate Payback Time Market Cap")
+        pass
+
+
+    # WebScrape 'Levered Free Cash Flow' from Yahoo Finance
+    
+    try:
+
+        levered_df = pd.read_html('https://finance.yahoo.com/quote/{x}/key-statistics?p={y}'.format(x=ticker,y=ticker))
+
+        levered_df[9].to_csv('{x}_Levered_Free_Cash_Flow'.format(x=ticker),index=False)
+
+        Lev_FCF = pd.read_csv('{x}_Levered_Free_Cash_Flow'.format(x=ticker))
+
+        Levered_Free_Cash_Flow = Lev_FCF['1'][1]
+        
+    except:
+        print("Error:                  Unable to Web Scrape Levered Free Cash Flow from Yahoo Finance")
+        pass
+
+    try:
+
+
+        if Levered_Free_Cash_Flow[-1] == 'T':
+            FCF_str = Levered_Free_Cash_Flow[:-1]
+
+            FCF_float = float(FCF_str)
+
+            multiplied_FCF_num = FCF_float * 1000000
+
+        elif Levered_Free_Cash_Flow[-1] == 'B':
+            FCF_str = Levered_Free_Cash_Flow[:-1]
+
+            FCF_float = float(FCF_str)
+
+            multiplied_FCF_num = FCF_float * 1000
+
+        elif Levered_Free_Cash_Flow[-1] == 'M':
+            FCF_str = Levered_Free_Cash_Flow[:-1]
+
+            FCF_float = float(FCF_str)
+
+            multiplied_FCF_num = FCF_float/1
+
+        else:
+            print(" ")
+            print("Levered Free Cash Flow Is not in the Millions, the Billions or the Trillions.")
+
+    except:
+        print("Error:                  Unable to Calculate Payback Time. Levered FCF data not available.")
+        pass
+
+    try:
+
+        Payback_Time = (multiplied_market_num/multiplied_FCF_num)
+
+        Payback_Time_Rounded = round(Payback_Time,2)
+
+    except:
+        pass 
+
+################################################################################################################################    
+    
+# NEW SECTION 3/14/2021
+
+    try:
+
+        PE_df.dropna(inplace=True)
+
+
+        # convert values that are current lists of strings into lists of float and int numbers:
+
+        date_int_list = []    
+
+###     THIS IS WHAT I'M CHANGING THE SLICE AFTER STRING USED TO BE [:-6]   .....3/15/21.... 
+###     Want to keep month/day values, not just year.    
+        
+        for string in PE_df['{x} PE Ratio Historical Data'.format(x=company_title)][1:]:
+            string.replace('-','')
+            date_int_list.append(string)
+###
+        price_float_list = []
+
+        for string in PE_df['{x} PE Ratio Historical Data.1'.format(x=company_title)][1:]:
+            price_float_list.append(float(string))
+
+        EPS_float_list = []    
+
+        for string in PE_df['{x} PE Ratio Historical Data.2'.format(x=company_title)][1:]:
+            EPS_float_list.append(float(string[1:]))
+
+        PE_float_list = []    
+
+        for string in PE_df['{x} PE Ratio Historical Data.3'.format(x=company_title)][1:]:
+            PE_float_list.append(float(string))
+
+
+
+
+
+        # Reverese data values so they graph properly
+
+        new_date_column =pd.Series(data=date_int_list[::-1]) 
+
+        new_price_column =pd.Series(data=price_float_list[::-1])
+
+        new_eps_column =pd.Series(data=EPS_float_list[::-1])
+
+        new_pe_column =pd.Series(data=PE_float_list[::-1])
+
+
+
+        New_PE_df = pd.concat([new_date_column,new_price_column,new_eps_column,new_pe_column],axis=1)
+
+
+
+        New_PE_df.rename(columns ={0:'Date',1:'Price',2:'EPS',3:'PE'},inplace=True)
+        
+        New_PE_df.set_index('Date',inplace=True)
+
+
+
+        # New_PE_df.set_index('Date',inplace=True)
+
+
+
+        # Average 5 year EPS
+        EPS_5_yr_avg = round(((EPS_float_list[0] + EPS_float_list[4] + EPS_float_list[8] + EPS_float_list[12] + EPS_float_list[16])/5),2)
+        
+        if EPS_float_list[0]<0 and EPS_float_list[0]<EPS_5_yr_avg:
+            print("Error:                  EPS (TTM) is negative! 5 Yr Average EPS may be used instead.")
+            EPS_TTM = EPS_5_yr_avg
+            
+        else:
+            EPS_TTM = EPS_float_list[0]
+
+    
+    except:
+        pass
+    
+    # To show yearly 10 Year DataFrame.... 3/14/2021
+    try:
+        revenue_df = pd.read_html(revenue_url)
+        revenue_new_columns_df = revenue_df[0][:10]
+        revenue_new_columns_df.rename(columns={'{x} Annual Revenue(Millions of US $)'.format(x=company_title): 'Year',
+                                               '{x} Annual Revenue(Millions of US $).1'.format(x=company_title):'Revenue'}, inplace=True)
+
+        eps_df = pd.read_html(eps_url)
+        eps_new_columns_df = eps_df[0][:10]
+        eps_new_columns_df.rename(columns={'{x} Annual EPS'.format(x=company_title): 'Year',
+                                           '{x} Annual EPS.1'.format(x=company_title):'EPS'}, inplace=True)
+
+
+        equity_df = pd.read_html(equity_url)
+        equity_new_columns_df = equity_df[0][:10]
+        equity_new_columns_df.rename(columns={'{x} Annual Share Holder Equity(Millions of US $)'.format(x=company_title): 'Year',
+                                              '{x} Annual Share Holder Equity(Millions of US $).1'.format(x=company_title):'Equity'}, inplace=True)
+
+
+        fcf_df = pd.read_html(fcf_url)
+        fcf_new_columns_df = fcf_df[0][:10]
+        fcf_new_columns_df.rename(columns={'{x} Annual Free Cash Flow'.format(x=company_title): 'Year',
+                                           '{x} Annual Free Cash Flow.1'.format(x=company_title):'FCF'}, inplace=True)
+
+
+        # Need to merge all the new DataFrame Columns
+
+        first_half_df = pd.merge(revenue_new_columns_df,eps_new_columns_df,on='Year')
+
+        second_half_df = pd.merge(equity_new_columns_df,fcf_new_columns_df,on='Year')
+
+        ten_yr_whole_df =pd.merge(first_half_df,second_half_df,on='Year')
+        
+        ten_yr_whole_df.set_index('Year',inplace=True)
+        
+    except:
+        print("Failed to gather 10 Year Data")
+        pass
+    
+    # To Graph Quarterly 10 Yr Datafame: 3/15/21
+    
+    try:
+        quarterly_revenue_new_columns_df = revenue_df[1][:20]
+        quarterly_revenue_new_columns_df.rename(columns={'{x} Quarterly Revenue(Millions of US $)'.format(x=company_title): 'Date',
+                                               '{x} Quarterly Revenue(Millions of US $).1'.format(x=company_title):'Revenue'}, inplace=True)
+
+        quarterly_eps_new_columns_df = eps_df[1][:20]
+        quarterly_eps_new_columns_df.rename(columns={'{x} Quarterly EPS'.format(x=company_title): 'Date',
+                                           '{x} Quarterly EPS.1'.format(x=company_title):'EPS'}, inplace=True)
+
+
+        quarterly_equity_new_columns_df = equity_df[1][:20]
+        quarterly_equity_new_columns_df.rename(columns={'{x} Quarterly Share Holder Equity(Millions of US $)'.format(x=company_title): 'Date',
+                                              '{x} Quarterly Share Holder Equity(Millions of US $).1'.format(x=company_title):'Equity'}, inplace=True)
+
+
+        quarterly_fcf_new_columns_df = fcf_df[1][:20]
+        quarterly_fcf_new_columns_df.rename(columns={'{x} Quarterly Free Cash Flow'.format(x=company_title): 'Date',
+                                           '{x} Quarterly Free Cash Flow.1'.format(x=company_title):'FCF'}, inplace=True)
+
+
+        # Need to merge all the new DataFrame Columns
+
+        quarterly_first_half_df = pd.merge(quarterly_revenue_new_columns_df,quarterly_eps_new_columns_df,on='Date')
+
+        quarterly_second_half_df = pd.merge(quarterly_equity_new_columns_df,quarterly_fcf_new_columns_df,on='Date')
+
+        quarterly_ten_yr_whole_df =pd.merge(quarterly_first_half_df,quarterly_second_half_df,on='Date')
+        
+        quarterly_ten_yr_whole_df.set_index('Date',inplace=True)
+        
+    except:
+        print("Failed to gather Quarterly 10 Year Data")
+        pass
+    
+    
+    # Fair Value Calculation:
+    
+    try:
+        fair_value = round(((EPS_TTM * Rounded_Avg_5yr_PE *(1 + (YF_5_Yr_Growth_Estimate/100))**10) / (1 + (req_rate/100))**10) , 2)
+    except:
+        print("Error:                  Fair Value Uncalculable")
+        pass
+
+    try:
+        disc_to_fv = round(  ((1-(current_price/fair_value) )*100) , 2 )
+    except:
+        print("Error:                  Discount to Fair Value Uncalculable")
+        
+    # Buy, Sell or Hold?
+    
+    
+    
+    
+    try:
+        buy_sell_or_hold = 'UNKNOWN'
+        if current_price <= fair_value:
+            buy_sell_or_hold = 'BUY'
+
+        elif current_price == fair_value:
+            buy_sell_or_hold = 'HOLD'
+
+        elif current_price >= fair_value:
+            buy_sell_or_hold = 'SELL'
+    
+    except:
+        print("Error:                  Unable to Determine: Buy, Sell or Hold")
+        pass
+        
+        
+
+################################################################################################################################
+
+
+    # Print all findings and resource links
+    
+    # All print statements need to be nested inside a try, except loop. This lets me check to see which information wasn't
+    # able to be processed in the program!
+    
+
+
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+    
+    
+    try:
+        print("Company Name:           {x}".format(x=company_title))
+    except:
+        print("Company Name:           Not Available")
+    try:
+        print("Ticker:                 {x}".format(x=ticker))
+    except:
+        print("Ticker:                 Not Available")
+              
+              
+    print(" ")
+    
+              
+    try:
+        print("Current PE:             {x} | {y} (5 Yr Avg)".format(x=Current_PE,y=Rounded_Avg_5yr_PE))
+    except:
+        print("Current PE:             Not Available")
+    try:
+        print("PEG RATIO:              {x}".format(x=Rounded_PEG))
+    except:
+        print("PEG RATIO:              Not Available") 
+    try:
+        print("Current Div Yield:      {x} %".format(x=current_dividend_percentage))
+    except:
+        print("Current Div Yield:      Not Available")
+        
+              
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+    
+              
+    try:
+        print("EPS (TTM):              {x}  | {y} (5 Yr Avg)".format(x=EPS_TTM,y=EPS_5_yr_avg))
+    except:
+        print("EPS TTM:                Not Available")
+    try:
+        print("Stock Price:            {x}".format(x=current_price))
+    except:
+        print("Stock Price:            Not Available")
+    try:
+        print("Req Rate of Return:     {x} %".format(x=req_rate))
+    except:
+        print("Req Rate of Return:     Not Available")
+        
+              
+    print(" ")
+        
+    
+    try:
+        print("5 Yr Growth Est:        {x} %".format(x=YF_5_Yr_Growth_Estimate))
+    except:
+        print("5 Yr Growth Est:        Not Available") 
+    try:
+        print("Market Cap:             {x} {y}".format(x=market_cap,y=m_b_or_t))
+    except:
+        print("Market Cap:             Not Available")
+
+  
+
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+    
+
+    print("PE Ratio")
+    try:
+        print("5 YR LOW:               {x}".format(x=Five_Yr_Min))
+    except:
+        print("5 YR LOW:               Not Available")
+    try:
+        print("5 YR HIGH:              {x}".format(x=Five_Yr_Max))
+    except:
+        print("5 YR HIGH:              Not Available")
+    try:
+        print("5 YR AVG:               {x}".format(x=Rounded_Avg_5yr_PE))
+    except:
+        print("5 YR AVG:               Not Available")
+
+              
+    print(" ")
+
+              
+    print("ROI")
+    try:
+        print("1 YR AVG:               {x}".format(x=Rounded_Avg_1yr_ROI))
+    except:
+        print("1 YR AVG:               Not Available")
+    try:
+        print("5 YR AVG:               {x}".format(x=Rounded_Avg_5yr_ROI))
+    except:
+        print("5 YR AVG;               Not Available")
+              
+        
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+              
+    
+    try:
+        print("Payback Time:           {x} Years".format(x=Payback_Time_Rounded))
+    except:
+        print("Payback Time:           Not Available") 
+    try:
+        print("Fair Value:             {x}  |  {y} (Current Price)".format(x=fair_value,y=current_price))
+    except:
+        print("Fair Value:             Not Available")
+    try:
+        print("Discount to FV:         {x} %".format(x=disc_to_fv))
+    except:
+        print("Discount to FV:         Not Available")    
+    try:
+        print("Current Ratio:          {x}".format(x=current_ratio))
+    except:
+        print("Current Ratio:          Not Available")   
+    try:
+        print("Decision:               {x}".format(x=buy_sell_or_hold))
+    except:
+        print("Decision:               Not Available")
+    
+            
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+    
+              
+    try:
+        print(ten_yr_whole_df)
+    except:
+        print("Ten Year Information:          Not Available")
+              
+        
+    print(" ")
+    print(" ")
+    
+              
+    try:
+        print("Tot. Cur. Assets:              {x}".format(x=total_current_assets))
+    except:
+        print("Tot. Cur. Assets:              Not Available")        
+    try:
+        print("Tot. Cur. Liabilities:         {x}".format(x=total_current_liabilities))
+    except:
+        print("Tot. Cur. Liabilities:         Not Available")        
+    try:
+        print("Tot. Liabilities:              {x}".format(x=total_liabilities))
+    except:
+        print("Tot. Liabilities:              Not Available")
+      
+              
+    print(" ")
+    
+              
+    try:
+        print("Tot. Assets:                   {x}".format(x=total_assets))
+    except:
+        print("Tot. Assets:                   Not Available")
+              
+              
+    
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+              
+    
+    print("Spreadsheet Links")
+              
+    print(" ")
+              
+    try:
+        print("Dividend History:       {x}".format(x=dividend_history_url))
+    except:
+        print("Dividend History:       Not Available")
+    try:
+        print("Balance Sheet:          {x}".format(x=balance_sheet_url))
+    except:
+        print("Balance Sheet:          Not Available")
+    try:
+        print("Price to Earnings:      {x}".format(x=pe_url))
+    except:
+        print("Price to Earnings:      Not Available")
+    try:
+        print("Return on Investment:   {x}".format(x=roi_url))
+    except:
+        print("Return on Investment:   Not Available")
+    try:
+        print("Revenue:                {x}".format(x=revenue_url))
+    except:
+        print("Revenue:                Not Available")
+    try:
+        print("Earnings/Share:         {x}".format(x=eps_url))
+    except:
+        print("Earnings/Share:         Not Available")
+    try:
+        print("Equity:                 {x}".format(x=equity_url))
+    except:
+        print("Equity:                 Not Available")
+    try:
+        print("Free Cash Flow:         {x}".format(x=fcf_url))
+    except:
+        print("Free Cash Flow:         Not Available")
+        
+    
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+    
+################################################################################################################################ 
+
+    try:
+        print(company_summary)
+    except:
+        print("Company Summary:        Not Available")
+        
+
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+  
+
+################################################################################################################################ 
+# GRAPHING EVERYTHING:
+
+
+# Create a Dividend History DataFrame for Graphing:
+
+# Webscrape Dividend History from DividendInvestor.com: Only provides 5 years... I'd like to get more!
+
+#     try:
+#         dividend_history_df = pd.read_html('https://www.dividendinvestor.com/dividend-history-detail/{x}/#'.format(x=ticker))
+#     except:
+#         print("Error:            Unable to Web Scrape Dividend History from DividendInvestor.com")
+#         pass
+
+#     try:
+
+#         balance_sheet_company_name = dividend_history_df[0].columns[0]
+
+#         dividend_history_df[0].rename(columns={'{x}.3'.format(x=balance_sheet_company_name): 'Pay Date',
+#                                                    '{x}.5'.format(x=balance_sheet_company_name):'Dividend'}, inplace=True)
+
+
+
+
+        
+        
+
+#         # Create new DataFrame containing only renamed 'Pay Date' and 'Dividend' Columns.
+
+#         dividend_hist_df = dividend_history_df[0][['Pay Date', 'Dividend']]
+
+            
+        
+
+
+
+
+
+#         # WORKING WITH DIVIDEND COLUMN OF "dividend_hist_df":
+
+
+
+#         # Remove all values from "dividend_hist_df" that are not numeric:
+
+#         numeric_div_values_only_series = dividend_hist_df['Dividend'].apply(pd.to_numeric, errors = 'coerce')
+        
+
+#         # Remove NaN values from 'conv_div' pandas series: Could have also used "series.dropna()"
+
+#         nan_values_removed_div_series = dividend_hist_df['Dividend'][~numeric_div_values_only_series.isnull()]
+
+
+#         # Turn "nan_values_removed_div_series" values from String into Float datatype, then reverse order for graphing:
+
+#         dividend_int_list = []
+
+#         for string in nan_values_removed_div_series:
+#             dividend_int_list.append(float(string))
+
+#         final_historical_div_series =pd.Series(data=dividend_int_list[::-1])
+
+#         # This ^^^ Dividend Data is now ready for graphing!!
+
+
+
+        
+        
+
+
+#         # WORKING WITH PAY DATE COLUMN OF "dividend_hist_df":                             THIS DOES NOT WORK YET!!!
+
+
+
+#         # Need to separate dates from 'Pay Date' series:
+        
+        
+        
+#         # Need to Convert Date values from "Apr. 15, 20214/15/21" for example, to "4-15-2021", a format that can be graphed.
+
+#         pay_date_int_list = []
+
+#         for string in dividend_hist_df['Pay Date']:
+            
+#             pay_date_int_list.append([item.split(',')[1][5:] for item in dividend_hist_df['Pay Date'] if item[-1].isnumeric()])
+        
+
+#         pay_dates_in_graphable_format_series = pd.Series(data=[str(int(item[-2:])+2000)+'-'+item[:-3].replace('/','-') for item in pay_date_int_list[0]][::-1])
+
+#         # Dates are now in YYYY-DD-MM format..... is this okay for graphing?
+
+
+
+#         # Create New DataFrame using new Pandas Series' Data as columns. Set the 'Pay Date' column as the index?
+
+#         graphable_dividend_df = pd.concat([pay_dates_in_graphable_format_series,final_historical_div_series],axis=1)
+
+#         graphable_dividend_df.set_index(0,inplace=True)
+
+#     except:
+#         print("Error:            Unable to Calculate Dividend History Data!")
+#         pass
+
+###########################################################################################################################
+
+    try:
+
+        # Webscrape 25 year dividend data from yahoo finance:
+
+        div_df = pd.read_html('https://finance.yahoo.com/quote/{x}/history?period1=76204800&period2=1616976000&interval=div%7Csplit&filter=div&frequency=1mo&includeAdjustedClose=true'.format(x=ticker))
+
+
+        ######### Time to deal with Dividend column...
+
+
+
+        # Remove the word 'Dividend' from div_df[0]['Dividend'] column values:
+
+        tuple_dividend_list = [item.split('Dividend') for item in div_df[0]['Dividends'][:-1]]
+
+        # Create new list from tuple_dividend_list that only has 'float' versions of the dividend data:
+
+        newest_list = [float(item[0]) for item in tuple_dividend_list]
+
+        # Convert the new dividend list into a pandas series, and reverse the historical data for graphing purposes:
+
+        dividend_series = pd.Series(newest_list[::-1]) 
+
+
+
+
+        ######### Time to deal with Date Column...
+
+
+
+
+        # Create dictionary to represent Monthly Values... i.e. Mar = 03
+
+        month_to_number_dictionary =  {"Jan": '01',"Feb":'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08',
+                                      'Sep':'09','Oct':'10','Nov':'11','Dec':'12'}
+
+        # Split items in div[0]['Date'] column on spaces, then eliminate commas from items...
+
+        split_dates_list = [item.replace(',','').replace(' ','-') for item in div_df[0]['Date'][:-1]]
+
+        # Taking newly split list items, replace the values at index[0] (the 3 letter monthly abbreviations i.e. 'Mar')
+        # with their corresponding dictionary values. Save these new values to a list.
+
+        converted_split_dates_list = [month_to_number_dictionary[item[:3]]+'-'+item[4:] for item in split_dates_list]
+
+        # Turn converted_split_dates_list back into a pandas series, so it can be merged into a new dataframe:
+
+        graph_date_series = pd.Series(data=converted_split_dates_list[::-1])
+
+
+
+
+        ######### GRAPH IT...
+
+        # Create a new dataframe for graphing purposes, using the new pandas series data from the 'Dividends' and 'Date' columns:
+
+        graph_div_df = pd.concat([graph_date_series,dividend_series],axis=1)
+
+        # Set the new dataframe's index as the 'Date' column, which is now recognized as 'graph_div_df[0]':
+
+        graph_div_df.set_index(0,inplace=True)
+
+        # Using plotly interactive graphing module, plot the new dataframe! Add in extra parameters to size and describe info:
+
+        graph_div_df.iplot(title='{x} 25 Year Dividend History'.format(x=company_title),kind='bar',xTitle='Pay Date',yTitle='Dividend')
+
+    except:
+        print("Error:            Unable to Graph {x} 25 Year Dividend History".format(x=company_title))
+    
+    
+###########################################################################################################################
+
+
+    # HISTORICAL DIVIDENDS GRAPH
+
+    try:
+        div_fig = graph_div_df.plot(kind='bar',figsize=(15,5))
+
+        div_fig.set_xlabel('Pay Date')
+        div_fig.set_ylabel('Dividend')
+        div_fig.set_title('{x} Historical Dividend Data'.format(x=company_title))
+
+
+        plt.tight_layout();
+    except:
+        print("Error:            Unable to Graph {x} Historical Dividend Data".format(x=company_title))
+
+
+#     # PLOTLY HISTORICAL DIVIDENDS GRAPH
+
+#     try:
+#         graph_div_df.iplot(title='{x} 5 Year Dividend History'.format(x=company_title),kind='bar',xTitle='Pay Date',yTitle='Dividend')
+#     except:
+#         print("Error:            Unable to Graph Plotly {x} Historical Dividend Data".format(x=company_title))
+
+
+    # PLOTLY 10 YR QUARTERLY DATA GRAPH     
+
+    try:
+        quarterly_ten_yr_whole_df[::-1].iplot(title='{x} 10 Year Data'.format(x=company_title),kind='bar',xTitle='Date')
+    except:
+        print("Error:            Unable to Graph Plotly {x} 10 Year Data".format(x=company_title))
+
+
+    # PLOTLY 10 YR QUARTERLY DATA (PRICE, PE, EPS) GRAPH  
+
+    try:
+        New_PE_df.iplot(kind='bar',size=(15,5),xTitle='Year',yTitle='Metrics',title='{x} Quarterly Metrics'.format(x=company_title))
+    except:
+        print("Error:            Unable to Graph Plotly {x} Quarterly Metrics".format(x=company_title))
+
+
+    # HISTORICAL PRICE, EPS and PE GRAPH
+
+    try:
+        # Using a subplot, so that they all graph.... had trouble separating them since they were being run in the same cell!
+        fig, axs = plt.subplots(3,1)
+
+        New_PE_df['Price'].plot(ax=axs[0],kind='bar',figsize=(15,15),color='purple',title='Price')
+
+        New_PE_df['EPS'].plot(ax=axs[1],kind='bar',figsize=(15,15),color='r',title='Earnings per Share')
+
+        New_PE_df['PE'].plot(ax=axs[2],kind='bar',figsize=(15,15),color='green',title='Price to Earnings')
+
+        plt.tight_layout()
+    except:
+        print("Error:            Unable to Graph {x} Historical Price, EPS and PE Data".format(x=company_title))
+        
+
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+    
+################################################################################################################################        
+    
+    # NEW SECTION 4/6/2021.....
+    
+    # Attempting to graph historical price data with S&P 500 comparison! 
+    
+    try:
+        import pandas_datareader
+        import datetime
+
+
+
+
+        import pandas_datareader.data as web
+
+
+
+
+
+        start = datetime.datetime(1990, 1, 1)
+        end = datetime.datetime(2021, 4, 1)
+
+
+
+
+
+        Current_Stock = web.DataReader("{x}".format(x=ticker), 'yahoo', start, end)
+        SP500 = web.DataReader("^GSPC", 'yahoo', start, end)
+
+
+
+        SP500.to_csv('S&P500_Index.csv')
+        Current_Stock.to_csv('{x}_Stock.csv'.format(x=company_title))
+
+
+
+
+        Current_Stock['{x}'.format(x=company_title)] = Current_Stock['Open'].rolling(200).mean()
+
+
+
+        # To Determine Scaling factor, to appropriately plot the current security against the S&P 500:
+
+        whole_num = int(Current_Stock['{x}'.format(x=company_title)][-1])
+
+        whole_num_variable = whole_num
+
+        count = 0
+
+        while (whole_num_variable>0):
+            whole_num_variable = whole_num_variable//10
+            count+=1
+
+        if count == 1:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()/1000     
+        elif count == 2:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()/100    
+        elif count == 3:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()/10
+        elif count == 4:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()
+        elif count == 5:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()*10
+        elif count == 6:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()*100
+        elif count == 7:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()*1000
+        elif count == 8:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()*10000
+        elif count == 9:
+            SP500['S&P 500 Index'] = SP500['Open'].rolling(200).mean()*100000
+
+        else:
+            pass
+
+        price_comparison_df = pd.concat([SP500['S&P 500 Index'],Current_Stock['{x}'.format(x=company_title)]],axis=1).dropna()
+
+#         SP500['SP500_MA200'].plot(label='SP500',ls='--',color='black',figsize=(16,8),title='Historical Price as Rolling Mean')
+#         Current_Stock['{x}_MA200'.format(x=ticker)].plot(label='{x}'.format(x=ticker))
+
+        price_comparison_df.iplot(title='Historical Price Comparison of: {x} vs. (Scaled) S&P 500 Index'.format(x=company_title),kind='scatter',xTitle='Date',yTitle='Price in USD')
+
+        plt.tight_layout()
+        plt.legend();
+    
+    except:
+        print("Error:          Unable to graph Historical Price Comparison to the S&P 500")
+        
+    
+    print(" ")
+    print("************************************************************************************************************************")
+    print(" ")
+    
+
+
+
+################################################################################################################################    
+
+# Finishing up Errors and Exception handling by terminating the program if there is insufficient company data to proceed,
+# or unpassable errors.
+
+
+except:
+    print(" ")
+    print("Data is missing for this company!")
+    print(" ")
+    print("Some parts of CAM'S STOCK ANALYSIS program failed to execute!")
+    pass
